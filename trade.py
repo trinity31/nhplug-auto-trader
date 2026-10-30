@@ -271,6 +271,14 @@ def limits():
     전략 파일을 열어 봐야만 알 수 있으면, 파일을 못 여는 사람은 자기 돈이 얼마나
     걸려 있는지 영영 모릅니다. 화면에 그대로 띄웁니다.
     """
+    if getattr(strategy, "APPROVED_MOCK", False):
+        return {
+            "한 종목에 넣는 돈": f"국내 최대 {strategy.BUY_AMOUNT:,}원 · 최소 2주·짝수",
+            "최대 종목 수": "별도 제한 없음",
+            "최대로 들어갈 수 있는 돈": f"총 원금 {strategy.CAPITAL:,}원 (계좌 잔액 전체를 쓰지 않음)",
+            "손절 · 익절": "-10% 손절 · +40% 절반 익절 · 이후 종가 50일선 이탈 · 6개월 기한",
+            "모드": "모의투자 전용 · 실제 계좌는 실행 차단",
+        }
     per_kr = strategy.BUY_AMOUNT
     per_us = getattr(strategy, "US_BUY_AMOUNT", 0)
     most = strategy.MAX_HOLDINGS
@@ -834,6 +842,10 @@ def main():
     if mode not in ("--scan", "--do", "--preview", "--account"):
         print(USAGE)
         return
+
+    if getattr(strategy, "APPROVED_MOCK", False):
+        import mock_runner
+        return mock_runner.main(mode)
 
     # 키를 아직 안 넣은 사람이 처음 실행하면 여기서 걸립니다. 파이썬 오류를
     # 보여 주고 끝내는 대신, 설정 화면을 대신 열어 줍니다. 터미널에 명령을

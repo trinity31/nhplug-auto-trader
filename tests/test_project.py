@@ -15,7 +15,7 @@ import board
 import broker
 import check
 import setup
-import strategy
+import legacy_strategy as strategy  # upstream 전략의 회귀 계약을 보존하는 고정 fixture
 import telegram
 import trade
 
@@ -131,6 +131,13 @@ def decide(m):
 
 
 class IntegrationHelpersTests(unittest.TestCase):
+    def setUp(self):
+        # 새 승인전략은 test_approved_strategy에서 실제 strategy.py로 검사합니다.
+        # upstream 재량·미국주식 경로의 테스트는 원본 fixture로 계속 검증합니다.
+        patcher = mock.patch.object(trade, "strategy", strategy)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_setup_strategy_check_needs_no_confirmation_state(self):
         self.assertIn("전략 검사", setup.PAGE)
         self.assertNotIn("confirmStrategy", setup.PAGE)
@@ -761,8 +768,10 @@ class IntegrationHelpersTests(unittest.TestCase):
         # 실제로 한 번 어긋나서 화면에는 없어진 공시 얘기가 남아 있었습니다.
         text = setup.schedule_text()
         self.assertIn("trade.py --scan", text)
-        self.assertIn("trade.py --do", text)
-        self.assertIn("news.google.com", text)
+        # 승인된 결정적 모의전략은 재량 --do·별도 뉴스 판단을 추가하지 않습니다.
+        self.assertIn("--scan --brief", text)
+        self.assertIn("--do로 재량 판단을 전달하지 않는다", text)
+        self.assertIn("외부 Slack·Telegram 메시지를 별도로 발송하지 않는다", text)
         page = setup.PAGE.replace("%%SCHEDULE%%", text).replace("%%POINTER%%", setup.POINTER)
         self.assertIn("trade.py --scan", page)
         self.assertNotIn("%%SCHEDULE%%", page)

@@ -112,8 +112,11 @@ def fail(message):
 
 def main():
     namespace = {}
+    source_path = STRATEGY
+    if len(sys.argv) == 3 and sys.argv[1] == "--strategy":
+        source_path = Path(sys.argv[2])
     try:
-        code = validate_source(STRATEGY.read_text(encoding="utf-8"))
+        code = validate_source(source_path.read_text(encoding="utf-8"))
         exec(code, namespace)  # noqa: S102
     except Exception as exc:
         fail(f"strategy.py를 불러오지 못했습니다 ({type(exc).__name__}: {exc})")
@@ -131,7 +134,8 @@ def main():
             fail(f"{field}의 형식이 올바르지 않습니다.")
 
     kr, us = namespace["SYMBOLS"], namespace["US_SYMBOLS"]
-    if not kr and not us:
+    dynamic = namespace.get("APPROVED_MOCK") is True and namespace.get("DYNAMIC_SYMBOLS") is True
+    if not kr and not us and not dynamic:
         fail("살펴볼 종목이 하나도 없습니다. 국내나 미국 중 하나는 있어야 합니다.")
     for code in kr:
         if not (isinstance(code, str) and len(code) == 6 and code.isdigit()):
@@ -144,7 +148,7 @@ def main():
             and ticker.replace(".", "").replace("-", "").isalpha()
         ):
             fail(f"미국 티커는 대문자 영문이어야 합니다: {ticker!r}")
-    if namespace["MAX_HOLDINGS"] < 1:
+    if namespace["MAX_HOLDINGS"] < 1 and not (dynamic and namespace["MAX_HOLDINGS"] == 0):
         fail("MAX_HOLDINGS는 1 이상이어야 합니다.")
     if namespace["BUY_AMOUNT"] < 1 or namespace["US_BUY_AMOUNT"] < 1:
         fail("한 종목에 넣을 금액은 1 이상이어야 합니다.")
@@ -158,6 +162,15 @@ def main():
             fail(f'US_SESSIONS에는 "pre", "regular", "after"만 넣습니다: {name!r}')
     if not callable(namespace.get("decide")):
         fail("decide 함수가 없습니다.")
+
+    if dynamic:
+        for field, expected in (("CAPITAL", 10_000_000), ("BUY_AMOUNT", 500_000),
+                                ("RISK_PER_TRADE", 100_000), ("STOP_LOSS_PCT", -10),
+                                ("TAKE_PROFIT_PCT", 40), ("HOLD_MONTHS", 6), ("MAX_HOLDINGS", 0)):
+            if namespace.get(field) != expected:
+                fail(f"승인된 모의전략의 {field} 값과 다릅니다")
+        if us or not callable(namespace.get("plan")):
+            fail("모의전략은 국내 전용이며 plan()이 있어야 합니다")
 
     # facts()는 장중에 종목마다 불립니다. 여기서 같이 불러 봐야 터지는지 압니다.
     more = namespace.get("facts")
@@ -198,12 +211,12 @@ def main():
 
     print()
     print("통과했습니다.")
-    print(f"  국내 {', '.join(kr) or '안 함'} · 종목당 {namespace['BUY_AMOUNT']:,}원")
+    print(f"  국내 {', '.join(kr) or ('EasyInvesting 동적 후보' if dynamic else '안 함')} · 종목당 {namespace['BUY_AMOUNT']:,}원")
     print(f"  미국 {', '.join(us) or '안 함'} · 종목당 ${namespace['US_BUY_AMOUNT']:,}")
     if us:
         when = {"pre": "프리마켓", "regular": "정규장", "after": "애프터마켓"}
         print(f"  미국을 볼 시간대 {' · '.join(when[name] for name in sessions)}")
-    print(f"  최대 {namespace['MAX_HOLDINGS']}종목")
+    print("  보유 종목 수 별도 제한 없음 · 총 원금 10,000,000원 · 모의투자 전용" if dynamic else f"  최대 {namespace['MAX_HOLDINGS']}종목")
 
 
 if __name__ == "__main__":

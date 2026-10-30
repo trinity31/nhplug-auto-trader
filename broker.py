@@ -154,6 +154,7 @@ def closes(code, days=20):
             "array_cnt": str(days),
             "maxavg": "5",
             "today_cls_code": "0",
+            "view_main_yn": "Y",  # 공식 명세 261015: 정규장 시세 조회에 필수
         },
         live_read=True,
     )
@@ -174,6 +175,7 @@ def cash(act):
             "ltg_aot_dit_cd": "9",
             "aet_bse": "2",
             "qut_dit_cd": "UNT",
+            "aly_qut_cd": "1",  # 공식 명세 261015: 정규장 평가시세에 필수
         },
     ).get("Output_0") or {}
     return int(float(out.get("dca") or 0))
@@ -194,6 +196,7 @@ def holdings(act):
                 "ltg_aot_dit_cd": "9",
                 "aet_bse": "2",
                 "qut_dit_cd": "UNT",
+                "aly_qut_cd": "1",  # 공식 명세 261015: 정규장 평가시세에 필수
             },
         ).get("Output_1")
         or []
